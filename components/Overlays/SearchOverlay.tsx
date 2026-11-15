@@ -10,6 +10,7 @@ export default function SearchOverlay() {
   const doc = useEditorStore((s) => s.doc);
   const setViewport = useEditorStore((s) => s.setViewport);
   const select = useEditorStore((s) => s.select);
+  const panelOpen = useEditorStore((s) => s.inspectorTargetId !== null);
 
   const searchable = useMemo(() => {
     const blocks = blocksOf(doc).map((b) => ({ id: b.id, name: b.name, x: b.x + b.w / 2, y: b.y + b.h / 2 }));
@@ -27,7 +28,11 @@ export default function SearchOverlay() {
   };
 
   return (
-    <div className="absolute top-4 right-4 flex flex-col items-end gap-1">
+    <div
+      className={`absolute top-4 flex flex-col items-end gap-1 transition-[right] ${
+        panelOpen ? "right-[21rem]" : "right-4"
+      }`}
+    >
       {!open ? (
         <button
           className="w-9 h-9 rounded-md border border-stone-300 bg-white shadow-sm grid place-items-center hover:bg-stone-100"

@@ -11,7 +11,6 @@ export default function AssetSidebar() {
   const addBlockFromLibrary = useEditorStore((s) => s.addBlockFromLibrary);
   const addComment = useEditorStore((s) => s.addComment);
   const library = useEditorStore((s) => s.library);
-  const libraryDirName = useEditorStore((s) => s.libraryDirName);
   const wireColors = useEditorStore((s) => s.doc.wireColors);
   const activeWireColorId = useEditorStore((s) => s.activeWireColorId);
   const setActiveWireColor = useEditorStore((s) => s.setActiveWireColor);
@@ -57,7 +56,7 @@ export default function AssetSidebar() {
               }}
             >
               <option value="" disabled>
-                {!libraryDirName ? "Chưa chọn thư viện" : library.length ? "Chọn khối…" : "Chưa lưu khối nào"}
+                {library.length ? "Chọn khối…" : "Chưa có khối nào"}
               </option>
               {library.map((l) => (
                 <option key={l.name} value={l.name}>

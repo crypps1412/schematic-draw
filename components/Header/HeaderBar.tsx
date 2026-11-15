@@ -1,19 +1,18 @@
 // components/Header/HeaderBar.tsx
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useEditorStore, LibraryBlock } from "../../store/editorStore";
-import { canvasFileName, downloadJson, readJsonFile } from "../../lib/serialization";
-import { CanvasDoc, newCanvasDoc } from "../../lib/types";
+import { canvasFileName, downloadJson, libraryFileName, readJsonFile } from "../../lib/serialization";
+import { CanvasDoc } from "../../lib/types";
 
 export default function HeaderBar() {
   const doc = useEditorStore((s) => s.doc);
   const renameCanvas = useEditorStore((s) => s.renameCanvas);
   const loadDoc = useEditorStore((s) => s.loadDoc);
   const resetDoc = useEditorStore((s) => s.resetDoc);
-  const loadLibraryFolder = useEditorStore((s) => s.loadLibraryFolder);
-  const setLibraryDirectory = useEditorStore((s) => s.setLibraryDirectory);
-  const libraryDirName = useEditorStore((s) => s.libraryDirName);
+  const library = useEditorStore((s) => s.library);
+  const loadBlockFiles = useEditorStore((s) => s.loadBlockFiles);
 
   const [editingName, setEditingName] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -22,6 +21,26 @@ export default function HeaderBar() {
 
   const openInputRef = useRef<HTMLInputElement>(null);
   const libraryInputRef = useRef<HTMLInputElement>(null);
+  const menuContainerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onPointerDown = (e: PointerEvent) => {
+      if (menuContainerRef.current && !menuContainerRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMenuOpen(false);
+    };
+    // capture phase so this still fires even if a child stops propagation
+    document.addEventListener("pointerdown", onPointerDown, true);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown, true);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [menuOpen]);
 
   const handleSave = () => downloadJson(canvasFileName(doc), doc);
 
@@ -35,46 +54,34 @@ export default function HeaderBar() {
   };
 
   /**
-   * Preferred path: the File System Access API gives us a directory handle we
-   * can both read from AND write new block files into later, so "Save to
-   * Library" lands in the same folder the user picked here.
+   * Picking new block files always REPLACES the currently loaded library
+   * (never merges). Each selected file may contain either a single block
+   * template, or an array of them (so re-importing a previously exported
+   * library file also works).
    */
-  const handleChooseLibrary = async () => {
-    console.log("HERERERERERE")
-    if (window.showDirectoryPicker) {
-      try {
-        const handle = await window.showDirectoryPicker({ mode: "readwrite" });
-        await setLibraryDirectory(handle);
-        setMenuOpen(false);
-      } catch {
-        // user cancelled the picker — leave selection unchanged
-      }
-      return;
-    }
-    // Fallback for browsers without the File System Access API: can read the
-    // folder's files but can't write back to it, so "Save to Library" will
-    // only update the in-memory library in that case.
-    // libraryInputRef.current?.click();
-  };
-
-  const handleLoadLibraryFallback = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    console.log("TERERERER")
-    const allFiles = Array.from(e.target.files ?? []);
-    const files = allFiles.filter((f) => f.name.endsWith(".json"));
+  const handlePickBlockFiles = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []).filter((f) => f.name.endsWith(".json"));
     const blocks: LibraryBlock[] = [];
     for (const f of files) {
       try {
         const parsed = await readJsonFile<any>(f);
-        blocks.push({ name: parsed.name ?? f.name.replace(/\.json$/, ""), block: parsed });
+        const items = Array.isArray(parsed) ? parsed : [parsed];
+        for (const item of items) {
+          blocks.push({ name: item.name ?? f.name.replace(/\.json$/, ""), block: item });
+        }
       } catch {
         // skip malformed entries
       }
     }
-    const relPath = (allFiles[0] as any)?.webkitRelativePath as string | undefined;
-    const dirName = relPath?.split("/")[0];
-    loadLibraryFolder(blocks, dirName);
+    loadBlockFiles(blocks);
     setMenuOpen(false);
     e.target.value = "";
+  };
+
+  const handleExportLibrary = () => {
+    const payload = library.map((l) => l.block);
+    downloadJson(libraryFileName(), payload);
+    setMenuOpen(false);
   };
 
   const confirmNewCanvas = () => {
@@ -115,7 +122,7 @@ export default function HeaderBar() {
         )}
       </div>
 
-      <div className="w-52 flex justify-end relative">
+      <div ref={menuContainerRef} className="w-52 flex justify-end relative">
         <button
           className="text-sm px-3 py-1.5 rounded border border-white/20 hover:bg-white/10"
           onClick={() => setMenuOpen((v) => !v)}
@@ -128,10 +135,11 @@ export default function HeaderBar() {
             <MenuItem label="Lưu bản vẽ" onClick={handleSave} />
             <MenuItem label="Mở bản vẽ…" onClick={() => openInputRef.current?.click()} />
             <div className="h-px bg-stone-200 my-1" />
+            <MenuItem label="Nạp khối…" onClick={() => libraryInputRef.current?.click()} />
             <MenuItem
-              label="Chọn thư viện khối"
-              subtitle={libraryDirName ? `Đang dùng: ${libraryDirName}` : undefined}
-              onClick={handleChooseLibrary}
+              label="Xuất thư viện khối"
+              subtitle={library.length ? `${library.length} khối đã nạp` : "Chưa có khối nào"}
+              onClick={handleExportLibrary}
             />
           </div>
         )}
@@ -139,12 +147,10 @@ export default function HeaderBar() {
         <input
           ref={libraryInputRef}
           type="file"
-          // @ts-ignore - non-standard attribute for folder selection
-          webkitdirectory=""
-          directory=""
+          accept=".json"
           multiple
           className="hidden"
-          onChange={handleLoadLibraryFallback}
+          onChange={handlePickBlockFiles}
         />
       </div>
 

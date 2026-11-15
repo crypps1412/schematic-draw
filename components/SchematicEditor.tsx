@@ -19,8 +19,8 @@ export default function SchematicEditor() {
         <div className="relative flex-1 min-w-0">
           <CanvasViewport />
           <SearchOverlay />
+          <PropertiesPanel />
         </div>
-        <PropertiesPanel />
       </div>
     </div>
   );

@@ -120,9 +120,9 @@ export default function BlockProperties({ block }: { block: BlockInstance }) {
 
       <button
         className="mt-2 text-sm bg-amber-500 hover:bg-amber-600 text-white rounded px-3 py-2"
-        onClick={async () => {
+        onClick={() => {
           if (nameExistsInLibrary && !window.confirm(`Ghi đè khối "${block.name}" trong thư viện?`)) return;
-          await saveBlockToLibrary(block.id);
+          saveBlockToLibrary(block.id);
         }}
       >
         Lưu vào thư viện

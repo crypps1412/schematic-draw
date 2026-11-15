@@ -19,7 +19,6 @@ import {
 import { renumberEdges, pinTerminalPoint, clampBlockToCanvas } from "../lib/geometry";
 import { autoRoute } from "../lib/routing";
 import { snapToGrid } from "../lib/units";
-import { blockFileName } from "../lib/serialization";
 
 export interface LibraryBlock {
   name: string;
@@ -42,9 +41,6 @@ interface EditorState {
   viewport: { centerX: number; centerY: number; scale: number };
   clipboard: CanvasElement[];
   library: LibraryBlock[];
-  /** Directory handle for the chosen block-library folder (File System Access API). Null = none chosen yet. */
-  libraryDirHandle: FileSystemDirectoryHandle | null;
-  libraryDirName: string | null;
   activeWireColorId: string;
   wiringTool: WiringToolState;
   sidebarCollapsed: boolean;
@@ -64,7 +60,7 @@ interface EditorState {
   resizeBlock: (id: string, rect: { x: number; y: number; w: number; h: number }) => void;
   addPin: (blockId: string, edge: Edge) => void;
   removePin: (blockId: string, pinId: string) => void;
-  saveBlockToLibrary: (id: string) => void | Promise<void>;
+  saveBlockToLibrary: (id: string) => void;
 
   // --- comments ---
   addComment: (at: Point) => string;
@@ -98,14 +94,12 @@ interface EditorState {
   // --- misc UI ---
   toggleSidebar: () => void;
   setInspectorTarget: (id: string | null) => void;
-  /** Fallback path: populate the library in-memory from files read via an <input webkitdirectory> (no write access). */
-  loadLibraryFolder: (blocks: LibraryBlock[], dirName?: string) => void;
   /**
-   * Primary path: set the chosen library folder's directory handle (File System Access API),
-   * read every *.json block file in it, and remember the handle so future "Save to Library"
-   * writes land in the same folder. Pass null to clear the selection.
+   * Loads one or more block-template files, REPLACING whatever was previously
+   * loaded (per-file: an object is one block; an array is treated as several
+   * blocks, so an exported library file works here too).
    */
-  setLibraryDirectory: (handle: FileSystemDirectoryHandle | null) => Promise<void>;
+  loadBlockFiles: (blocks: LibraryBlock[]) => void;
 }
 
 function getBlock(doc: CanvasDoc, id: string): BlockInstance | undefined {
@@ -159,8 +153,6 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   viewport: { centerX: 1500, centerY: 1000, scale: 1 },
   clipboard: [],
   library: [],
-  libraryDirHandle: null,
-  libraryDirName: null,
   activeWireColorId: newCanvasDoc().wireColors[0].id,
   wiringTool: { active: false },
   sidebarCollapsed: false,
@@ -283,20 +275,11 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       },
     })),
 
-  saveBlockToLibrary: async (id) => {
+  saveBlockToLibrary: (id) => {
     const block = getBlock(get().doc, id);
     if (!block) return;
     const { id: _id, x: _x, y: _y, ...rest } = block;
     const entry: LibraryBlock = { name: block.name, block: rest };
-
-    const handle = get().libraryDirHandle;
-    if (handle) {
-      const fileHandle = await handle.getFileHandle(blockFileName(block.name), { create: true });
-      const writable = await fileHandle.createWritable();
-      await writable.write(JSON.stringify(rest, null, 2));
-      await writable.close();
-    }
-
     set((s) => {
       const existingIdx = s.library.findIndex((l) => l.name === block.name);
       const library =
@@ -512,28 +495,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
   setInspectorTarget: (id) => set({ inspectorTargetId: id }),
 
-  loadLibraryFolder: (blocks, dirName) =>
-    set({ library: blocks, libraryDirName: dirName ?? null, libraryDirHandle: null }),
-
-  setLibraryDirectory: async (handle) => {
-    if (!handle) {
-      set({ libraryDirHandle: null, libraryDirName: null, library: [] });
-      return;
-    }
-    set({ libraryDirHandle: handle, libraryDirName: handle.name });
-    const blocks: LibraryBlock[] = [];
-    for await (const entry of handle.values()) {
-      if (entry.kind !== "file" || !entry.name.endsWith(".json")) continue;
-      try {
-        const file = await (entry as FileSystemFileHandle).getFile();
-        const parsed = JSON.parse(await file.text());
-        blocks.push({ name: parsed.name ?? entry.name.replace(/\.json$/, ""), block: parsed });
-      } catch {
-        // skip malformed entries
-      }
-    }
-    set({ library: blocks });
-  },
+  loadBlockFiles: (blocks) => set({ library: blocks }),
 }));
 
 export { blocksOf, wiresOf, getBlock, getPin };

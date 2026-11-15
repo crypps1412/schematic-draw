@@ -19,6 +19,10 @@ export function blockFileName(name: string): string {
   return `${name.replace(/[\\/:*?"<>|]/g, "_")}.json`;
 }
 
+export function libraryFileName(): string {
+  return "thu-vien-khoi.json";
+}
+
 export async function readJsonFile<T>(file: File): Promise<T> {
   const text = await file.text();
   return JSON.parse(text) as T;

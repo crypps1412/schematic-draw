@@ -52,11 +52,18 @@ hooks/
   with wire re-routing on move, resize with grid snapping, Ctrl+drag duplicate
 - Copy/Cut/Duplicate/Delete/Arrow-key nudge, right-click to undo the last
   manual wire anchor, middle-click to cancel wiring
-- Canvas/block JSON export+import. Library folder is chosen via "Chọn thư
-  viện khối" (File System Access API `showDirectoryPicker`, read+write), so
-  "Save to Library" writes the block's JSON straight into that folder; browsers
-  without that API fall back to a read-only `<input webkitdirectory>` picker,
-  block-library "Save to Library" with overwrite confirmation
+- Canvas JSON export+import (Save/Open canvas).
+- Block library, file-based (no folder/directory access, so it works in any
+  browser without a secure-context requirement):
+  - **"Nạp khối…"** opens a plain multi-file picker. Each selected `.json`
+    file is either one block template or an array of them; the picked set
+    always *replaces* whatever was loaded before (never merges).
+  - **"Xuất thư viện khối"** downloads everything currently in the sidebar's
+    library dropdown as a single combined JSON file — and that same file can
+    be re-picked later via "Nạp khối…" since arrays are accepted on load.
+  - The Properties Panel's "Lưu vào thư viện" button only appends/overwrites
+    an entry in that in-memory sidebar list — it does not write to disk by
+    itself; use "Xuất thư viện khối" afterward to persist it.
 - Fuzzy subsequence search ("d t12" → "Điện trở 120") with live viewport pan
 
 ## What's simplified / left as a stub — worth hardening before production

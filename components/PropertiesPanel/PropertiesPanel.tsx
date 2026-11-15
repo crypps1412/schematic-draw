@@ -15,7 +15,7 @@ export default function PropertiesPanel() {
   if (!target || target.kind === "comment") return null;
 
   return (
-    <aside className="w-80 shrink-0 h-full border-l border-stone-300 bg-white overflow-y-auto">
+    <aside className="absolute top-0 right-0 z-20 w-80 h-full border-l border-stone-300 bg-white shadow-lg overflow-y-auto">
       <div className="h-9 flex items-center justify-between px-3 border-b border-stone-200">
         <span className="text-xs font-semibold uppercase tracking-wide text-stone-500">
           {target.kind === "block" ? "Thuộc tính khối" : "Thuộc tính dây"}
